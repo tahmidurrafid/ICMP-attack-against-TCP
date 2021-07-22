@@ -1,4 +1,8 @@
 #include<bits/stdc++.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -60,31 +64,7 @@ public:
             }
         }
     }
-    // void set_bits(char * buff, param &par, int offset){
-    //     int charSize = sizeof(buff[0])*8;
-    //     int section = offset/(charSize);
-    //     int charOff = charSize - offset%charSize - 1;
-    //     int cur = par.len-1;
-    //     int fromPointer = min(7, par.len - 1);
-    //     int fromCounter = 0;
-    //     int fromByte = 1;
-    //     while(cur >= 0){
-    //         copyBit(par.val, fromPointer, buff[section], charOff);
-    //         charOff--;
-    //         if(charOff < 0){
-    //             charOff = charSize - 1;
-    //             section++;
-    //         }
-    //         cur--;
-    //         fromCounter++;
-    //         fromPointer--;
-    //         if(fromCounter == 8){
-    //             fromCounter = 0;
-    //             fromByte++;
-    //             fromPointer = min(fromByte*8 - 1, par.len-1);
-    //         }
-    //     }
-    // }
+
 
     void construct_packet(char *raw, int length){
         for(int i = 0; i < length; i++){ 
@@ -125,13 +105,9 @@ public:
         int check_sum = 0;
 
         while(icmp_pos < total_len.val-1){
-            // cout << (unsigned int)raw[icmp_pos] << " ?? " << (unsigned int)raw[icmp_pos+1] << "--\n";
             check_sum += ((int)raw[icmp_pos+1])*256 + (int)raw[icmp_pos];
-            // cout << check_sum << "-";
             icmp_pos += 2;
         }
-
-        // cout << (unsigned short) (~check_sum) << "------\n";        
 
         if(icmp_pos < total_len.val){
             check_sum += raw[icmp_pos]*256;
@@ -139,7 +115,6 @@ public:
         check_sum = (check_sum >> 16) + (check_sum & 0xffff);
         check_sum += (check_sum >> 16);
         icmp_checksum.val = (unsigned short) (~check_sum);
-        // cout << (unsigned short) (~check_sum) << "------\n";
 
         params[14] = icmp_checksum;
         len = 0;
@@ -176,6 +151,68 @@ ui strToIp(string ip){
     return ipVal;
 }
 
+void sendPacket(ICMP_Packet &icmp , char * buff){
+
+    struct sockaddr_in dest_info;
+    int enable = 1;
+
+    int sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+
+    setsockopt(sock, IPPROTO_IP, IP_HDRINCL, &enable, sizeof(enable));
+
+    unsigned long addrs = 0;
+    unsigned long mask = 255;
+    addrs |= ((icmp.dest_addr.val >> 24)&mask)<<0;
+    addrs |= ((icmp.dest_addr.val >> 16)&mask)<<8;
+    addrs |= ((icmp.dest_addr.val >> 8)&mask)<<16;
+    addrs |= ((icmp.dest_addr.val >> 0)&mask)<<24;
+
+
+    dest_info.sin_family = AF_INET;
+    dest_info.sin_addr.s_addr = addrs;
+
+
+    cout << ntohs((unsigned short)icmp.total_len.val) << "\n";
+    cout << dest_info.sin_addr.s_addr << "\n";
+
+    sendto(sock, buff, (unsigned short)icmp.total_len.val, 0, 
+        (struct sockaddr *) &dest_info, sizeof(dest_info));
+    cout << "Sent\n";
+
+    close(sock);
+
+}
+
+
+void doSum(){
+    ICMP_Packet icmp;
+    int length = 1000;
+    char * buff = new char[length]; 
+
+    icmp.type.val = 3;
+    icmp.code.val = 1;
+    icmp.icmp_checksum.val = 0;
+
+    icmp.version.val = 4;
+    icmp.header_len.val = 5;
+    icmp.ttl.val = 20;
+    icmp.source_addr.val = strToIp("192.168.0.103");
+    icmp.dest_addr.val = strToIp("192.168.0.101");
+    icmp.protocol.val = 1;
+    icmp.construct_packet(buff, length);    
+
+    for(int i = 0; i < 1; i++)
+        sendPacket(icmp, buff);
+
+    cout << icmp.total_len.val << "==========\n";
+    for(int i = 0; i < icmp.total_len.val; i++){
+        cout << (unsigned int)buff[i] << " ";
+    }
+
+    cout << "Hello world\n";
+}
+
+
 int main(){
     ICMP_Packet icmp;
     int length = 1000;
@@ -188,14 +225,18 @@ int main(){
     icmp.version.val = 4;
     icmp.header_len.val = 5;
     icmp.ttl.val = 20;
-    icmp.source_addr.val = strToIp("16.1.1.1");
-    icmp.dest_addr.val = strToIp("15.1.1.1");
+    icmp.source_addr.val = strToIp("192.168.0.103");
+    icmp.dest_addr.val = strToIp("192.168.0.101");
     icmp.protocol.val = 1;
-    cout << "Ashche\n";
-    icmp.construct_packet(buff, length);
+    icmp.construct_packet(buff, length);    
+
+    for(int i = 0; i < 1; i++)
+        sendPacket(icmp, buff);
+
     cout << icmp.total_len.val << "==========\n";
     for(int i = 0; i < icmp.total_len.val; i++){
         cout << (unsigned int)buff[i] << " ";
     }
+
     cout << "Hello world\n";
 }
